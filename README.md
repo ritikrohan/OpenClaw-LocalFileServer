@@ -14,8 +14,8 @@
 
 ## Screenshot
 
-![LocalFileServer — Web-based local file manager with dark theme, drag-and-drop upload, grid/list view, and real-time storage stats](<img width="1467" height="737" alt="image" src="https://github.com/user-attachments/assets/c6a75007-2230-4cbe-9d43-21b4636bb7d1" />
-)
+<img width="1467" height="737" alt="image" src="https://github.com/user-attachments/assets/290bb444-f064-40d1-a0a8-c087af9c7606" />
+
 
 *Dark-themed UI with drag & drop upload, grid/list view toggle, real-time storage bar, and bulk file operations.*
 
