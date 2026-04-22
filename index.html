@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LocalFileServer</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:        #0a0a0f;
+    --surface:   #111118;
+    --card:      #16161f;
+    --card-hover:#1c1c28;
+    --border:    #1e1e2e;
+    --border-hi: #2a2a3e;
+    --accent:    #6366f1;
+    --accent-hi: #818cf8;
+    --green:     #10b981;
+    --red:       #ef4444;
+    --text:      #f1f5f9;
+    --text-sub:  #94a3b8;
+    --text-muted:#475569;
+    --radius:    10px;
+    --radius-lg: 16px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; font-size: 14px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+  /* Header */
+  header {
+    position: sticky; top: 0; z-index: 200;
+    background: rgba(10,10,15,0.9); backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; letter-spacing: -0.3px; }
+  .logo .material-icons-round { font-size: 20px; color: var(--accent); }
+  .stat-badge { display: inline-flex; align-items: center; gap: 4px; background: var(--card); border: 1px solid var(--border); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; color: var(--text-sub); }
+  .stat-badge .material-icons-round { font-size: 13px; color: var(--text-muted); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .header-stats { display: flex; gap: 8px; }
+
+  /* Toolbar */
+  .toolbar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 0 28px; height: 48px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .breadcrumb { flex: 1; display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; overflow: hidden; }
+  .bc-item { color: var(--text-sub); cursor: pointer; transition: color 0.15s; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+  .bc-item:hover { color: var(--accent-hi); }
+  .bc-item.current { color: var(--text); cursor: default; }
+  .bc-item.current:hover { color: var(--text); }
+  .bc-sep .material-icons-round { font-size: 14px; color: var(--text-muted); }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 0 16px; height: 34px; border-radius: var(--radius); border: none; cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit; transition: all 0.15s; white-space: nowrap; }
+  .btn .material-icons-round { font-size: 16px; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-hi); }
+  .btn-outline { background: transparent; color: var(--text-sub); border: 1px solid var(--border-hi); }
+  .btn-outline:hover { background: var(--card-hover); color: var(--text); }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-danger:hover { background: #ff6b6b; }
+  .btn-sm { height: 30px; padding: 0 12px; font-size: 12px; }
+  .btn-sm .material-icons-round { font-size: 14px; }
+
+  /* Selection toolbar */
+  #selection-bar {
+    display: none;
+    background: var(--card); border-bottom: 1px solid var(--accent);
+    padding: 0 28px; height: 48px;
+    align-items: center; gap: 12px;
+    position: sticky; top: 56px; z-index: 150;
+  }
+  #selection-bar.show { display: flex; }
+  .sel-count { font-size: 13px; font-weight: 600; color: var(--accent-hi); flex: 1; }
+  .sel-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* Main */
+  .main { padding: 24px 28px; max-width: 1300px; margin: 0 auto; }
+
+  /* Storage bar */
+  .storage-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 16px; }
+  .storage-wrap .material-icons-round { font-size: 18px; color: var(--text-muted); flex-shrink: 0; }
+  .storage-inner { flex: 1; min-width: 0; }
+  .storage-labels { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; font-weight: 600; }
+  .storage-labels span:first-child { color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .storage-track { background: var(--border); border-radius: 100px; height: 4px; }
+  .storage-fill { height: 100%; border-radius: 100px; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent-hi)); transition: width 0.4s ease; }
+
+  /* Drop zone */
+  #dropzone { border: 1.5px dashed var(--border-hi); border-radius: var(--radius-lg); padding: 32px 24px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--surface); margin-bottom: 20px; position: relative; overflow: hidden; }
+  #dropzone::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(99,102,241,0.05) 0%, transparent 70%); pointer-events: none; }
+  #dropzone:hover, #dropzone.dragover { border-color: var(--accent); background: rgba(99,102,241,0.04); }
+  .dz-icon-wrap { width: 48px; height: 48px; border-radius: 12px; background: rgba(99,102,241,0.12); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+  .dz-icon-wrap .material-icons-round { font-size: 26px; color: var(--accent); }
+  #dropzone h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  #dropzone p { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+  #dropzone p span { color: var(--accent-hi); font-weight: 500; }
+
+  /* Upload progress */
+  #upload-progress { display: none; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 20px; }
+  .prog-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+  .prog-label { font-size: 13px; font-weight: 500; }
+  .prog-pct { font-size: 13px; font-weight: 600; color: var(--accent-hi); }
+  .prog-track { background: var(--border); border-radius: 100px; height: 4px; }
+  .prog-fill { background: linear-gradient(90deg, var(--accent), var(--accent-hi)); height: 100%; border-radius: 100px; width: 0%; transition: width 0.25s ease; }
+
+  /* Files header */
+  .files-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .files-count { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .files-header-right { display: flex; align-items: center; gap: 10px; }
+
+  /* Select all checkbox area */
+  .select-all-wrap { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+  .select-all-wrap input[type=checkbox] { display: none; }
+  .custom-cb { width: 16px; height: 16px; border: 1.5px solid var(--border-hi); border-radius: 4px; background: var(--card); display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; }
+  .custom-cb .material-icons-round { font-size: 12px; color: #fff; display: none; }
+  .custom-cb.checked { background: var(--accent); border-color: var(--accent); }
+  .custom-cb.checked .material-icons-round { display: block; }
+  .custom-cb.indeterminate { background: var(--accent); border-color: var(--accent); }
+  .custom-cb.indeterminate .material-icons-round { display: block; }
+  .select-all-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .view-toggle { display: flex; gap: 2px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
+  .view-btn { background: transparent; border: none; cursor: pointer; color: var(--text-muted); width: 30px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .view-btn .material-icons-round { font-size: 17px; }
+  .view-btn.active { background: var(--border-hi); color: var(--text); }
+
+  /* Grid */
+  #file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+
+  .file-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 14px 14px;
+    cursor: pointer; transition: all 0.15s; position: relative;
+    text-align: center; overflow: hidden; user-select: none;
+  }
+  .file-card:hover { background: var(--card-hover); border-color: var(--border-hi); transform: translateY(-1px); }
+  .file-card.selected { border-color: var(--accent); background: rgba(99,102,241,0.08); transform: none; }
+  .file-card.selected:hover { background: rgba(99,102,241,0.12); }
+
+  /* Card checkbox */
+  .card-cb {
+    position: absolute; top: 8px; left: 8px;
+    width: 18px; height: 18px;
+    border: 1.5px solid var(--border-hi); border-radius: 5px;
+    background: var(--surface);
+    display: none; align-items: center; justify-content: center;
+    transition: all 0.15s; z-index: 10;
+  }
+  .card-cb .material-icons-round { font-size: 12px; color: #fff; }
+  .file-card:hover .card-cb,
+  .file-card.selected .card-cb,
+  .selecting .card-cb { display: flex; }
+  .file-card.selected .card-cb { background: var(--accent); border-color: var(--accent); }
+
+  .file-card .file-actions { position: absolute; top: 8px; right: 8px; display: none; gap: 3px; z-index: 10; }
+  .file-card:hover .file-actions { display: flex; }
+  .file-card.selected .file-actions { display: none; }
+  .selecting .file-card .file-actions { display: none !important; }
+
+  .act-btn { background: var(--surface); border: 1px solid var(--border-hi); color: var(--text-sub); width: 26px; height: 26px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .act-btn .material-icons-round { font-size: 14px; }
+  .act-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .act-btn.del:hover { background: var(--red); border-color: var(--red); }
+
+  .file-icon-wrap { width: 44px; height: 44px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 10px; position: relative; overflow: hidden; }
+  .file-icon-wrap .material-icons-round { font-size: 24px; }
+  .file-icon-wrap.has-thumb { width: 100%; height: 110px; border-radius: 8px; margin-bottom: 8px; background: #0a0a0f; }
+  .file-icon-wrap.has-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; display: block; }
+  .file-icon-wrap.has-thumb .thumb-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.35); }
+  .file-icon-wrap.has-thumb .thumb-play .material-icons-round { font-size: 32px; color: #fff; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6)); }
+  .file-icon-wrap.has-thumb .thumb-pdf-badge { position: absolute; bottom: 4px; right: 6px; background: #ef4444; color: #fff; font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 4px; letter-spacing: 0.05em; }
+  /* List view thumbnail */
+  #file-grid.list-view .file-icon-wrap.has-thumb { width: 34px; height: 34px; }
+  #file-grid.list-view .file-icon-wrap.has-thumb img { border-radius: 6px; }
+  .ic-folder  { background: rgba(251,191,36,0.12);  color: #fbbf24; }
+  .ic-image   { background: rgba(16,185,129,0.12);  color: #10b981; }
+  .ic-video   { background: rgba(239,68,68,0.12);   color: #ef4444; }
+  .ic-audio   { background: rgba(139,92,246,0.12);  color: #8b5cf6; }
+  .ic-pdf     { background: rgba(239,68,68,0.12);   color: #ef4444; }
+  .ic-code    { background: rgba(6,182,212,0.12);   color: #06b6d4; }
+  .ic-archive { background: rgba(245,158,11,0.12);  color: #f59e0b; }
+  .ic-doc     { background: rgba(59,130,246,0.12);  color: #3b82f6; }
+  .ic-sheet   { background: rgba(16,185,129,0.12);  color: #10b981; }
+  .ic-slide   { background: rgba(249,115,22,0.12);  color: #f97316; }
+  .ic-file    { background: rgba(100,116,139,0.12); color: #64748b; }
+
+  .file-name { font-size: 12px; font-weight: 500; word-break: break-word; line-height: 1.4; color: var(--text); }
+  .file-meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+
+  /* List view */
+  #file-grid.list-view { display: flex; flex-direction: column; gap: 0; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  #file-grid.list-view .file-card { display: flex; align-items: center; gap: 12px; text-align: left; padding: 10px 14px; border: none; border-bottom: 1px solid var(--border); border-radius: 0; transform: none !important; }
+  #file-grid.list-view .file-card:last-child { border-bottom: none; }
+  #file-grid.list-view .file-card:hover { background: var(--card-hover); }
+  #file-grid.list-view .card-cb { position: static; display: flex; flex-shrink: 0; }
+  #file-grid.list-view .file-card:not(:hover):not(.selected) .card-cb { opacity: 0; }
+  #file-grid.list-view .file-card:hover .card-cb,
+  #file-grid.list-view .file-card.selected .card-cb,
+  #file-grid.list-view.selecting .card-cb { opacity: 1; display: flex; }
+  #file-grid.list-view .file-icon-wrap { width: 34px; height: 34px; border-radius: 8px; margin-bottom: 0; flex-shrink: 0; }
+  #file-grid.list-view .file-icon-wrap .material-icons-round { font-size: 18px; }
+  #file-grid.list-view .file-info { flex: 1; min-width: 0; }
+  #file-grid.list-view .file-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #file-grid.list-view .file-meta { margin-top: 1px; }
+  #file-grid.list-view .file-actions { position: static; display: flex; margin-left: auto; }
+  #file-grid.list-view .file-card.selected .file-actions { display: none; }
+
+  /* PDF preview canvas */
+  .pdf-canvas-wrap { width: 100%; height: 110px; border-radius: 8px; overflow: hidden; background: #fff; margin-bottom: 8px; }
+  .pdf-canvas-wrap canvas { width: 100% !important; height: 100% !important; object-fit: cover; }
+  /* Empty / loading */
+  .empty-state { text-align: center; padding: 64px 20px; color: var(--text-muted); grid-column: 1 / -1; }
+  .empty-icon { width: 64px; height: 64px; border-radius: 18px; background: var(--card); border: 1px solid var(--border); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+  .empty-icon .material-icons-round { font-size: 32px; color: var(--text-muted); }
+  .empty-state h3 { font-size: 15px; font-weight: 600; color: var(--text-sub); margin-bottom: 6px; }
+  .empty-state p { font-size: 13px; }
+  #loading { display: none; text-align: center; padding: 48px; grid-column: 1 / -1; }
+  .spinner { width: 28px; height: 28px; border: 2.5px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; margin-bottom: 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Modals */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(6px); }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--card); border: 1px solid var(--border-hi); border-radius: var(--radius-lg); padding: 24px; width: 380px; max-width: 90vw; box-shadow: 0 24px 48px rgba(0,0,0,0.5); }
+  .modal-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .modal-header .material-icons-round { font-size: 20px; color: var(--accent); }
+  .modal h3 { font-size: 16px; font-weight: 600; }
+  .modal label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .modal input { width: 100%; background: var(--surface); border: 1px solid var(--border-hi); color: var(--text); padding: 10px 14px; border-radius: var(--radius); font-size: 14px; font-family: inherit; outline: none; margin-bottom: 20px; transition: border-color 0.15s; }
+  .modal input:focus { border-color: var(--accent); }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .modal-body { font-size: 14px; color: var(--text-sub); margin-bottom: 20px; line-height: 1.6; }
+  .modal-body strong { color: var(--text); }
+
+  /* Toasts */
+  #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  .toast { background: var(--card); border: 1px solid var(--border-hi); border-radius: var(--radius); padding: 12px 16px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 10px; min-width: 240px; max-width: 320px; animation: toastIn 0.25s ease; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  .toast .material-icons-round { font-size: 16px; flex-shrink: 0; }
+  .toast.success { border-left: 3px solid var(--green); }
+  .toast.success .material-icons-round { color: var(--green); }
+  .toast.error { border-left: 3px solid var(--red); }
+  .toast.error .material-icons-round { color: var(--red); }
+  @keyframes toastIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* Viewer */
+  #viewer-modal { padding: 0; }
+  #viewer-modal.show { display: flex; }
+  #viewer-body img { max-width: 100%; max-height: calc(100vh - 100px); object-fit: contain; border-radius: 6px; display: block; }
+  #viewer-body video { max-width: 100%; max-height: calc(100vh - 100px); border-radius: 6px; outline: none; }
+  #viewer-body audio { width: 100%; max-width: 500px; }
+  #viewer-body iframe { width: 100%; height: calc(100vh - 100px); border: none; border-radius: 6px; background: #fff; }
+  #viewer-body pre { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; font-size: 13px; line-height: 1.7; color: var(--text); white-space: pre-wrap; word-break: break-word; width: 100%; max-height: calc(100vh - 120px); overflow: auto; font-family: 'Fira Mono', 'Consolas', monospace; }
+  .viewer-unsupported { text-align: center; color: var(--text-muted); padding: 48px; }
+  .viewer-unsupported .material-icons-round { font-size: 56px; display: block; margin-bottom: 16px; color: var(--text-muted); }
+  .viewer-unsupported p { font-size: 14px; margin-top: 8px; }
+
+  @media (max-width: 640px) {
+    header, .toolbar, #selection-bar { padding: 0 16px; }
+    .main { padding: 16px; }
+    .header-stats { display: none; }
+    #file-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <span class="material-icons-round">dns</span>
+    LocalFileServer
+  </div>
+  <div class="header-stats">
+    <div class="stat-badge"><div class="dot"></div><span id="stat-ram">—</span></div>
+    <div class="stat-badge">
+      <span class="material-icons-round">memory</span>
+      <span id="stat-free">—</span> free
+    </div>
+    <div class="stat-badge">
+      <span class="material-icons-round">schedule</span>
+      <span id="stat-uptime">—</span>
+    </div>
+  </div>
+</header>
+
+<!-- Normal toolbar -->
+<div class="toolbar" id="main-toolbar">
+  <div class="breadcrumb" id="breadcrumb">
+    <span class="bc-item current" onclick="loadFiles('')">
+      <span class="material-icons-round" style="font-size:16px">home</span> Home
+    </span>
+  </div>
+  <button class="btn btn-outline" onclick="showMkdir()">
+    <span class="material-icons-round">create_new_folder</span> New Folder
+  </button>
+  <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+    <span class="material-icons-round">upload</span> Upload
+  </button>
+  <input type="file" id="file-input" multiple style="display:none" onchange="handleFileSelect(this.files)"/>
+</div>
+
+<!-- Selection toolbar (shown when items selected) -->
+<div id="selection-bar">
+  <span class="material-icons-round" style="color:var(--accent);font-size:18px">check_circle</span>
+  <span class="sel-count" id="sel-count-label">0 selected</span>
+  <div class="sel-actions">
+    <button class="btn btn-outline btn-sm" onclick="downloadSelected()" id="btn-download-sel">
+      <span class="material-icons-round">download</span> Download
+    </button>
+    <button class="btn btn-danger btn-sm" onclick="deleteSelected()">
+      <span class="material-icons-round">delete_outline</span> Delete
+    </button>
+    <button class="btn btn-outline btn-sm" onclick="clearSelection()">
+      <span class="material-icons-round">close</span> Deselect
+    </button>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Storage -->
+  <div class="storage-wrap">
+    <span class="material-icons-round">storage</span>
+    <div class="storage-inner">
+      <div class="storage-labels">
+        <span>Storage</span>
+        <span id="storage-label" style="color:var(--text-sub)">— / 20 GB</span>
+      </div>
+      <div class="storage-track">
+        <div class="storage-fill" id="storage-fill"></div>
+      </div>
+    </div>
+    <span style="font-size:12px;font-weight:700;color:var(--text-sub);flex-shrink:0" id="storage-pct">0%</span>
+  </div>
+
+  <!-- Drop zone -->
+  <div id="dropzone" onclick="document.getElementById('file-input').click()">
+    <div class="dz-icon-wrap">
+      <span class="material-icons-round">cloud_upload</span>
+    </div>
+    <h3>Drag & Drop files here</h3>
+    <p>or <span>click to browse</span> &nbsp;·&nbsp; No file size limit &nbsp;·&nbsp; All formats supported</p>
+  </div>
+
+  <!-- Upload progress -->
+  <div id="upload-progress">
+    <div class="prog-header">
+      <span class="prog-label" id="upload-label">Uploading...</span>
+      <span class="prog-pct" id="upload-pct">0%</span>
+    </div>
+    <div class="prog-track"><div class="prog-fill" id="progress-fill"></div></div>
+  </div>
+
+  <!-- Files header -->
+  <div class="files-header">
+    <div style="display:flex;align-items:center;gap:14px">
+      <span class="files-count" id="file-count">Loading</span>
+      <label class="select-all-wrap" onclick="toggleSelectAll()">
+        <div class="custom-cb" id="select-all-cb"><span class="material-icons-round">check</span></div>
+        <span class="select-all-label">Select All</span>
+      </label>
+    </div>
+    <div class="files-header-right">
+      <div class="view-toggle">
+        <button class="view-btn active" id="grid-btn" onclick="setView('grid')" title="Grid view">
+          <span class="material-icons-round">grid_view</span>
+        </button>
+        <button class="view-btn" id="list-btn" onclick="setView('list')" title="List view">
+          <span class="material-icons-round">view_list</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loading"><div class="spinner"></div><br/><span style="color:var(--text-muted);font-size:13px">Loading files...</span></div>
+  <div id="file-grid"></div>
+</div>
+
+<!-- File Viewer Modal -->
+<div class="modal-overlay" id="viewer-modal" style="background:rgba(0,0,0,0.92);align-items:center;justify-content:center;flex-direction:column;">
+  <div id="viewer-header" style="width:100%;max-width:1100px;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;flex-shrink:0;">
+    <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+      <span class="material-icons-round" style="color:var(--accent);font-size:20px" id="viewer-icon">insert_drive_file</span>
+      <span style="font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60vw" id="viewer-title">File</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-shrink:0">
+      <button class="btn btn-outline btn-sm" id="viewer-download-btn"><span class="material-icons-round">download</span> Download</button>
+      <button class="btn btn-outline btn-sm" onclick="closeViewer()"><span class="material-icons-round">close</span></button>
+    </div>
+  </div>
+  <div id="viewer-body" style="flex:1;width:100%;max-width:1100px;overflow:auto;display:flex;align-items:center;justify-content:center;padding:8px 16px 20px;"></div>
+</div>
+
+<!-- New Folder Modal -->
+<div class="modal-overlay" id="mkdir-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="material-icons-round">create_new_folder</span>
+      <h3>New Folder</h3>
+    </div>
+    <label>Folder Name</label>
+    <input type="text" id="mkdir-input" placeholder="e.g. Project Files" onkeydown="if(event.key==='Enter')confirmMkdir()"/>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeMkdir()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmMkdir()">
+        <span class="material-icons-round">check</span> Create
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Rename Modal -->
+<div class="modal-overlay" id="rename-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="material-icons-round">drive_file_rename_outline</span>
+      <h3>Rename</h3>
+    </div>
+    <label>New Name</label>
+    <input type="text" id="rename-input" placeholder="Enter new name" onkeydown="if(event.key==='Enter')confirmRename()"/>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeRename()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmRename()">
+        <span class="material-icons-round">check</span> Rename
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Delete Confirm Modal -->
+<div class="modal-overlay" id="bulk-delete-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="material-icons-round" style="color:var(--red)">delete_outline</span>
+      <h3>Delete Items</h3>
+    </div>
+    <div class="modal-body" id="bulk-delete-body">Are you sure?</div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="document.getElementById('bulk-delete-modal').classList.remove('show')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmBulkDelete()">
+        <span class="material-icons-round">delete_outline</span> Delete All
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+let currentPath = '';
+let viewMode = 'grid';
+let renameTarget = '';
+let selectedPaths = new Set();
+let allFiles = [];
+
+/* ── Utilities ── */
+function toast(msg, type = 'success') {
+  const icons = { success: 'check_circle', error: 'error' };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span class="material-icons-round">${icons[type]}</span>${msg}`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+function formatSize(b) {
+  if (!b) return '0 B';
+  const k = 1024, s = ['B','KB','MB','GB'];
+  const i = Math.floor(Math.log(b) / Math.log(k));
+  return (b / Math.pow(k, i)).toFixed(1) + ' ' + s[i];
+}
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function getIconInfo(file) {
+  if (file.isDir) return { icon: 'folder', cls: 'ic-folder' };
+  const m = file.mimeType || '', n = file.name.toLowerCase();
+  if (m.startsWith('image/')) return { icon: 'image', cls: 'ic-image' };
+  if (m.startsWith('video/')) return { icon: 'video_file', cls: 'ic-video' };
+  if (m.startsWith('audio/')) return { icon: 'audio_file', cls: 'ic-audio' };
+  if (m.includes('pdf')) return { icon: 'picture_as_pdf', cls: 'ic-pdf' };
+  if (m.includes('zip')||m.includes('rar')||m.includes('7z')||m.includes('tar')||n.endsWith('.gz')) return { icon: 'folder_zip', cls: 'ic-archive' };
+  if (m.includes('word')||n.endsWith('.doc')||n.endsWith('.docx')) return { icon: 'description', cls: 'ic-doc' };
+  if (m.includes('sheet')||m.includes('excel')||n.endsWith('.xls')||n.endsWith('.xlsx')||n.endsWith('.csv')) return { icon: 'table_chart', cls: 'ic-sheet' };
+  if (m.includes('presentation')||n.endsWith('.ppt')||n.endsWith('.pptx')) return { icon: 'slideshow', cls: 'ic-slide' };
+  if (m.includes('text')||m.includes('json')||m.includes('javascript')||m.includes('html')||m.includes('css')||m.includes('xml')) return { icon: 'code', cls: 'ic-code' };
+  return { icon: 'insert_drive_file', cls: 'ic-file' };
+}
+
+/* ── Selection ── */
+function updateSelectionUI() {
+  const count = selectedPaths.size;
+  const selBar = document.getElementById('selection-bar');
+  const grid = document.getElementById('file-grid');
+
+  if (count > 0) {
+    selBar.classList.add('show');
+    document.getElementById('sel-count-label').textContent = `${count} item${count !== 1 ? 's' : ''} selected`;
+    grid.classList.add('selecting');
+    // Only show download button if no folders selected
+    const hasFolder = [...selectedPaths].some(p => {
+      const f = allFiles.find(f => (currentPath ? currentPath + '/' + f.name : f.name) === p);
+      return f && f.isDir;
+    });
+    document.getElementById('btn-download-sel').style.display = hasFolder ? 'none' : '';
+  } else {
+    selBar.classList.remove('show');
+    grid.classList.remove('selecting');
+  }
+
+  // Update select-all checkbox
+  const cb = document.getElementById('select-all-cb');
+  cb.classList.remove('checked', 'indeterminate');
+  if (count === 0) { /* nothing */ }
+  else if (count === allFiles.length) { cb.classList.add('checked'); cb.querySelector('.material-icons-round').textContent = 'check'; }
+  else { cb.classList.add('indeterminate'); cb.querySelector('.material-icons-round').textContent = 'remove'; }
+
+  // Update card visuals
+  document.querySelectorAll('.file-card').forEach(card => {
+    const fp = card.dataset.path;
+    card.classList.toggle('selected', selectedPaths.has(fp));
+  });
+}
+
+function toggleSelect(filePath, e) {
+  e.stopPropagation();
+  if (selectedPaths.has(filePath)) selectedPaths.delete(filePath);
+  else selectedPaths.add(filePath);
+  updateSelectionUI();
+}
+
+function toggleSelectAll() {
+  if (selectedPaths.size === allFiles.length && allFiles.length > 0) {
+    selectedPaths.clear();
+  } else {
+    allFiles.forEach(f => {
+      const fp = currentPath ? `${currentPath}/${f.name}` : f.name;
+      selectedPaths.add(fp);
+    });
+  }
+  updateSelectionUI();
+}
+
+function clearSelection() {
+  selectedPaths.clear();
+  updateSelectionUI();
+}
+
+/* ── Bulk operations ── */
+function downloadSelected() {
+  const paths = [...selectedPaths];
+  if (!paths.length) return;
+  // Download one by one with small delay
+  paths.forEach((p, i) => {
+    setTimeout(() => {
+      const a = document.createElement('a');
+      a.href = `/api/download?path=${encodeURIComponent(p)}`;
+      a.download = '';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }, i * 400);
+  });
+  toast(`Downloading ${paths.length} file${paths.length > 1 ? 's' : ''}...`);
+}
+
+function deleteSelected() {
+  const count = selectedPaths.size;
+  if (!count) return;
+  document.getElementById('bulk-delete-body').innerHTML =
+    `You are about to permanently delete <strong>${count} item${count !== 1 ? 's' : ''}</strong>. This action cannot be undone.`;
+  document.getElementById('bulk-delete-modal').classList.add('show');
+}
+
+async function confirmBulkDelete() {
+  document.getElementById('bulk-delete-modal').classList.remove('show');
+  const paths = [...selectedPaths];
+  const res = await fetch('/api/bulk-delete', {
+    method: 'DELETE',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ paths })
+  });
+  const data = await res.json();
+  if (data.success) {
+    toast(`${data.deleted} item${data.deleted !== 1 ? 's' : ''} deleted`);
+    selectedPaths.clear();
+    loadFiles(currentPath);
+    updateStats();
+  } else {
+    toast('Delete failed', 'error');
+  }
+}
+
+/* ── File loading ── */
+async function loadFiles(dir = '') {
+  currentPath = dir;
+  selectedPaths.clear();
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('file-grid').innerHTML = '';
+  updateBreadcrumb(dir);
+  updateSelectionUI();
+  try {
+    const res = await fetch(`/api/files?path=${encodeURIComponent(dir)}`);
+    const data = await res.json();
+    allFiles = data.files;
+    renderFiles(data.files);
+  } catch(e) { toast('Failed to load files', 'error'); }
+  document.getElementById('loading').style.display = 'none';
+}
+
+function renderFiles(files) {
+  const grid = document.getElementById('file-grid');
+  grid.innerHTML = '';
+  document.getElementById('file-count').textContent = `${files.length} ITEM${files.length !== 1 ? 'S' : ''}`;
+
+  if (!files.length) {
+    grid.innerHTML = `<div class="empty-state">
+      <div class="empty-icon"><span class="material-icons-round">folder_open</span></div>
+      <h3>This folder is empty</h3>
+      <p>Upload files or create a new folder to get started</p>
+    </div>`;
+    return;
+  }
+
+  files.forEach(file => {
+    const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
+    const { icon, cls } = getIconInfo(file);
+    const fp = filePath.replace(/'/g, "\\'");
+    const fn = file.name.replace(/'/g, "\\'");
+    const m = file.mimeType || '';
+    const isImage = m.startsWith('image/');
+    const isVideo = m.startsWith('video/');
+    const isPdf   = m.includes('pdf');
+    const hasThumb = !file.isDir && (isImage || isVideo || isPdf);
+    const thumbUrl = `/api/thumb?path=${encodeURIComponent(filePath)}`;
+
+    const card = document.createElement('div');
+    card.className = 'file-card';
+    card.dataset.path = filePath;
+
+    let previewHtml = '';
+    if (hasThumb && isPdf) {
+      previewHtml = `<div class="pdf-canvas-wrap" id="pdfwrap-${CSS.escape(filePath)}"></div>`;
+    } else if (hasThumb) {
+      previewHtml = `<div class="file-icon-wrap has-thumb">
+        <img src="${thumbUrl}" alt="" loading="lazy" onerror="this.closest('.file-icon-wrap').classList.remove('has-thumb');this.closest('.file-icon-wrap').innerHTML='<span class=\'material-icons-round\'>${icon}</span>';" />
+        ${isVideo ? '<div class="thumb-play"><span class="material-icons-round">play_circle_filled</span></div>' : ''}
+      </div>`;
+    } else {
+      previewHtml = `<div class="file-icon-wrap ${cls}"><span class="material-icons-round">${icon}</span></div>`;
+    }
+
+    card.innerHTML = `
+      <div class="card-cb" onclick="toggleSelect('${fp}', event)">
+        <span class="material-icons-round">check</span>
+      </div>
+      <div class="file-actions">
+        ${!file.isDir ? `<button class="act-btn" title="Download" onclick="event.stopPropagation();downloadFile('${fp}')">
+          <span class="material-icons-round">download</span></button>` : ''}
+        <button class="act-btn" title="Rename" onclick="event.stopPropagation();showRename('${fp}','${fn}')">
+          <span class="material-icons-round">drive_file_rename_outline</span></button>
+        <button class="act-btn del" title="Delete" onclick="event.stopPropagation();deleteFile('${fp}','${fn}')">
+          <span class="material-icons-round">delete_outline</span></button>
+      </div>
+      ${previewHtml}
+      <div class="file-info">
+        <div class="file-name">${file.name}</div>
+        <div class="file-meta">${file.isDir ? 'Folder' : formatSize(file.size)}&nbsp;&nbsp;${formatDate(file.modified)}</div>
+      </div>`;
+
+    card.onclick = (e) => {
+      if (selectedPaths.size > 0) { toggleSelect(filePath, e); return; }
+      if (file.isDir) loadFiles(filePath);
+      else openViewer(file, filePath);
+    };
+
+    grid.appendChild(card);
+
+    // PDF.js render for PDFs
+    if (isPdf) {
+      renderPdfThumb(thumbUrl, filePath, icon, cls);
+    }
+  });
+}
+
+function updateBreadcrumb(dir) {
+  const bc = document.getElementById('breadcrumb');
+  bc.innerHTML = `<span class="bc-item${!dir?' current':''}" onclick="loadFiles('')"><span class="material-icons-round" style="font-size:16px">home</span> Home</span>`;
+  if (!dir) return;
+  const parts = dir.split('/');
+  parts.forEach((part, i) => {
+    const fullPath = parts.slice(0, i + 1).join('/');
+    const isCurrent = i === parts.length - 1;
+    bc.innerHTML += `<span class="bc-sep"><span class="material-icons-round">chevron_right</span></span>
+      <span class="bc-item${isCurrent?' current':''}" onclick="loadFiles('${fullPath}')">${part}</span>`;
+  });
+}
+
+/* ── View ── */
+function setView(mode) {
+  viewMode = mode;
+  document.getElementById('file-grid').className = mode === 'list' ? 'list-view' : '';
+  document.getElementById('grid-btn').className = 'view-btn' + (mode === 'grid' ? ' active' : '');
+  document.getElementById('list-btn').className = 'view-btn' + (mode === 'list' ? ' active' : '');
+  if (selectedPaths.size > 0) document.getElementById('file-grid').classList.add('selecting');
+}
+
+/* ── Drag & Drop ── */
+const dropzone = document.getElementById('dropzone');
+document.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+document.addEventListener('dragleave', e => { if (!e.relatedTarget) dropzone.classList.remove('dragover'); });
+document.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
+});
+function handleFileSelect(files) { if (files.length) uploadFiles(files); }
+
+/* ── Upload ── */
+async function uploadFiles(files) {
+  const prog = document.getElementById('upload-progress');
+  const fill = document.getElementById('progress-fill');
+  const label = document.getElementById('upload-label');
+  const pct = document.getElementById('upload-pct');
+  prog.style.display = 'block';
+  const fd = new FormData();
+  for (const f of files) fd.append('files', f);
+  label.textContent = `Uploading ${files.length} file${files.length > 1 ? 's' : ''}...`;
+  return new Promise(resolve => {
+    const xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable) { const p = Math.round(e.loaded/e.total*100); fill.style.width=p+'%'; pct.textContent=p+'%'; }
+    };
+    xhr.onload = () => {
+      prog.style.display = 'none'; fill.style.width = '0%';
+      if (xhr.status === 200) { toast(`${files.length} file${files.length > 1 ? 's' : ''} uploaded`); loadFiles(currentPath); updateStats(); }
+      else { try { const e = JSON.parse(xhr.responseText); toast(e.error||'Upload failed','error'); } catch { toast('Upload failed','error'); } }
+      resolve();
+    };
+    xhr.onerror = () => { toast('Upload failed','error'); prog.style.display='none'; resolve(); };
+    xhr.open('POST', `/api/upload?path=${encodeURIComponent(currentPath)}`);
+    xhr.send(fd);
+  });
+}
+
+/* ── Single file actions ── */
+function downloadFile(p) { window.location.href = `/api/download?path=${encodeURIComponent(p)}`; }
+
+async function deleteFile(filePath, name) {
+  if (!confirm(`Delete "${name}"?\nThis action cannot be undone.`)) return;
+  const res = await fetch('/api/delete', { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ path: filePath }) });
+  if (res.ok) { toast(`"${name}" deleted`); loadFiles(currentPath); }
+  else toast('Delete failed','error');
+}
+
+/* ── Mkdir ── */
+function showMkdir() { document.getElementById('mkdir-input').value=''; document.getElementById('mkdir-modal').classList.add('show'); setTimeout(()=>document.getElementById('mkdir-input').focus(),100); }
+function closeMkdir() { document.getElementById('mkdir-modal').classList.remove('show'); }
+async function confirmMkdir() {
+  const name = document.getElementById('mkdir-input').value.trim(); if(!name) return;
+  const dirPath = currentPath ? `${currentPath}/${name}` : name;
+  const res = await fetch('/api/mkdir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:dirPath})});
+  if(res.ok){toast(`Folder "${name}" created`);loadFiles(currentPath);}else toast('Failed to create folder','error');
+  closeMkdir();
+}
+
+/* ── Rename ── */
+function showRename(fp, name) { renameTarget=fp; document.getElementById('rename-input').value=name; document.getElementById('rename-modal').classList.add('show'); setTimeout(()=>{const e=document.getElementById('rename-input');e.focus();e.select();},100); }
+function closeRename() { document.getElementById('rename-modal').classList.remove('show'); }
+async function confirmRename() {
+  const newName = document.getElementById('rename-input').value.trim(); if(!newName) return;
+  const dir = renameTarget.includes('/') ? renameTarget.substring(0,renameTarget.lastIndexOf('/')) : '';
+  const newPath = dir ? `${dir}/${newName}` : newName;
+  const res = await fetch('/api/rename',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({oldPath:renameTarget,newPath})});
+  if(res.ok){toast(`Renamed to "${newName}"`);loadFiles(currentPath);}else toast('Rename failed','error');
+  closeRename();
+}
+
+/* ── Stats ── */
+async function updateStats() {
+  try {
+    const s = await fetch('/api/stats').then(r=>r.json());
+    document.getElementById('stat-ram').textContent = s.processRam;
+    document.getElementById('stat-free').textContent = s.systemFreeRam;
+    document.getElementById('stat-uptime').textContent = s.uptime;
+    document.getElementById('storage-label').textContent = `${s.storageUsedHuman} / ${s.storageMaxHuman}`;
+    document.getElementById('storage-pct').textContent = `${s.storagePct}%`;
+    const fill = document.getElementById('storage-fill');
+    fill.style.width = s.storagePct + '%';
+    fill.style.background = s.storagePct > 85 ? 'linear-gradient(90deg,#ef4444,#f97316)' : s.storagePct > 60 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : 'linear-gradient(90deg,var(--accent),var(--accent-hi))';
+  } catch(e) {}
+}
+
+/* ── Keyboard shortcuts ── */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') clearSelection();
+  if ((e.ctrlKey || e.metaKey) && e.key === 'a') { e.preventDefault(); toggleSelectAll(); }
+  if (e.key === 'Delete' && selectedPaths.size > 0) deleteSelected();
+});
+
+/* ── Close modals on backdrop ── */
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if(e.target===m) m.classList.remove('show'); }));
+
+/* ── File Viewer ── */
+function openViewer(file, filePath) {
+  const modal = document.getElementById('viewer-modal');
+  const body = document.getElementById('viewer-body');
+  const title = document.getElementById('viewer-title');
+  const iconEl = document.getElementById('viewer-icon');
+  const dlBtn = document.getElementById('viewer-download-btn');
+  const viewUrl = `/api/view?path=${encodeURIComponent(filePath)}`;
+  const dlUrl  = `/api/download?path=${encodeURIComponent(filePath)}`;
+  const m = file.mimeType || '';
+
+  title.textContent = file.name;
+  dlBtn.onclick = () => { window.location.href = dlUrl; };
+  body.innerHTML = '';
+
+  if (m.startsWith('image/')) {
+    iconEl.textContent = 'image';
+    const img = document.createElement('img');
+    img.src = viewUrl;
+    img.alt = file.name;
+    body.appendChild(img);
+
+  } else if (m.startsWith('video/')) {
+    iconEl.textContent = 'video_file';
+    const vid = document.createElement('video');
+    vid.src = viewUrl;
+    vid.controls = true;
+    vid.autoplay = false;
+    vid.style.maxWidth = '100%';
+    body.appendChild(vid);
+
+  } else if (m.startsWith('audio/')) {
+    iconEl.textContent = 'audio_file';
+    const aud = document.createElement('audio');
+    aud.src = viewUrl;
+    aud.controls = true;
+    body.appendChild(aud);
+
+  } else if (m.includes('pdf')) {
+    iconEl.textContent = 'picture_as_pdf';
+    // Render PDF inline using PDF.js
+    ensurePdfJs(() => {
+      const canvas = document.createElement('canvas');
+      canvas.style.cssText = 'max-width:100%;border-radius:6px;display:block;';
+      body.appendChild(canvas);
+      // Multi-page wrapper
+      body.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'width:100%;max-height:calc(100vh - 100px);overflow-y:auto;display:flex;flex-direction:column;gap:12px;align-items:center;';
+      body.appendChild(wrap);
+      pdfjsLib.getDocument(viewUrl).promise.then(pdf => {
+        title.textContent = `${file.name} (${pdf.numPages} pages)`;
+        for (let i = 1; i <= pdf.numPages; i++) {
+          pdf.getPage(i).then(page => {
+            const vp = page.getViewport({ scale: 1.4 });
+            const c = document.createElement('canvas');
+            c.width = vp.width; c.height = vp.height;
+            c.style.cssText = 'max-width:100%;border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,0.5);';
+            wrap.appendChild(c);
+            page.render({ canvasContext: c.getContext('2d'), viewport: vp });
+          });
+        }
+      });
+    });
+
+  } else if (m.startsWith('text/') || /json|xml|javascript|typescript|yaml|markdown|csv/.test(m) || /\.(md|txt|csv|json|xml|js|ts|py|sh|yaml|yml|env|log|ini|toml|cfg|conf|html|css)$/i.test(file.name)) {
+    iconEl.textContent = 'code';
+    fetch(viewUrl).then(r => r.text()).then(text => {
+      const pre = document.createElement('pre');
+      pre.textContent = text;
+      body.appendChild(pre);
+    }).catch(() => { body.innerHTML = '<div class="viewer-unsupported"><span class="material-icons-round">error_outline</span><p>Could not load file</p></div>'; });
+
+  } else {
+    iconEl.textContent = 'insert_drive_file';
+    body.innerHTML = `<div class="viewer-unsupported">
+      <span class="material-icons-round">insert_drive_file</span>
+      <p style="font-size:16px;font-weight:600;color:var(--text)">${file.name}</p>
+      <p>Preview not available for this file type</p>
+      <p style="margin-top:16px"><button class="btn btn-primary" onclick="window.location.href='${dlUrl}'"><span class="material-icons-round">download</span> Download File</button></p>
+    </div>`;
+  }
+
+  modal.classList.add('show');
+}
+
+function closeViewer() {
+  const modal = document.getElementById('viewer-modal');
+  modal.classList.remove('show');
+  // Stop any playing media
+  const vid = modal.querySelector('video');
+  const aud = modal.querySelector('audio');
+  if (vid) vid.pause();
+  if (aud) aud.pause();
+  document.getElementById('viewer-body').innerHTML = '';
+}
+
+// Close viewer on backdrop click
+document.getElementById('viewer-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('viewer-modal')) closeViewer();
+});
+
+// Keyboard: Escape closes viewer
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('viewer-modal').classList.contains('show')) {
+    closeViewer(); e.stopPropagation();
+  }
+});
+
+/* ── PDF Thumbnail via PDF.js ── */
+let pdfJsLoaded = false;
+function ensurePdfJs(cb) {
+  if (window.pdfjsLib) { cb(); return; }
+  if (pdfJsLoaded) { setTimeout(() => ensurePdfJs(cb), 100); return; }
+  pdfJsLoaded = true;
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  s.onload = () => {
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    cb();
+  };
+  document.head.appendChild(s);
+}
+
+function renderPdfThumb(thumbUrl, filePath, icon, cls) {
+  // Use server-generated thumbnail (ffmpeg can't do PDF); fallback to PDF.js
+  const wrap = document.getElementById('pdfwrap-' + CSS.escape(filePath));
+  if (!wrap) return;
+
+  // First try server thumb (works if ghostscript/imagemagick available), else PDF.js
+  ensurePdfJs(() => {
+    const downloadUrl = `/api/download?path=${encodeURIComponent(filePath)}`;
+    pdfjsLib.getDocument(downloadUrl).promise.then(pdf => {
+      pdf.getPage(1).then(page => {
+        const viewport = page.getViewport({ scale: 0.5 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d');
+        page.render({ canvasContext: ctx, viewport }).promise.then(() => {
+          wrap.appendChild(canvas);
+          wrap.style.position = 'relative';
+          const badge = document.createElement('div');
+          badge.style.cssText = 'position:absolute;bottom:4px;right:6px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;';
+          badge.textContent = 'PDF';
+          wrap.appendChild(badge);
+        });
+      });
+    }).catch(() => {
+      // Fallback to icon if PDF.js fails
+      wrap.outerHTML = `<div class="file-icon-wrap ${cls}"><span class="material-icons-round">${icon}</span></div>`;
+    });
+  });
+}
+
+/* ── Init ── */
+loadFiles('');
+updateStats();
+setInterval(updateStats, 10000);
+</script>
+</body>
+</html>
